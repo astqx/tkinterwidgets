@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="tkinterwidgets",
-    version="0.0.1",
+    version="0.0.2",
     author="Aditya Singh Tejas",
     author_email="adityasinghtejas03@gmail.com",
     description="Tkinter Custom Widgets",

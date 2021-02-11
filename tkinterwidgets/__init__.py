@@ -29,8 +29,11 @@ class Label():
         self.toplevel.attributes('-alpha',self.opacity)
         self.toplevel.wm_attributes("-transparentcolor",self.transcolor)
         self.toplevel.withdraw()
+        if 'bg' in kwargs:
+            del kwargs['bg']
         self.label=internal_tk.Label(self.toplevel,bg=self.transcolor,**kwargs)
         toplevels.append(self)
+        self.change_kwargs=True
         self.master.bind('<Configure>',toplevels.position)
         self.master.bind('<Map>',self._on_map)
         self.master.bind('<Unmap>',self._on_unmap)
@@ -47,13 +50,16 @@ class Label():
         self.y=self.cover_frame.winfo_rooty()
         self.center_x=self.cover_frame.winfo_width()//2-self.dimentions[0]//2
         self.center_y=self.cover_frame.winfo_height()//2-self.dimentions[1]//2
-        self.toplevel.geometry(f'+{self.center_x+self.x}+{self.center_y+self.y}')
+        self.coords=(self.center_x+self.x,self.center_y+self.y)
+        self.toplevel.geometry(f'+{self.coords[0]}+{self.coords[1]}')
         self.master.update_idletasks()
         toplevels.lift()
 
     def pack(self,**kwargs):
-        self.cover_frame=internal_tk.Frame(self.master)
-        self.label.pack(**kwargs)
+        if self.change_kwargs:
+            self.pack_kwargs=kwargs.copy()
+            self.label.pack(**kwargs)
+            self.cover_frame=internal_tk.Frame(self.master)
         self.toplevel.update()
         self.dimentions=(self.toplevel.winfo_width(),self.toplevel.winfo_height())
         if 'padx' in kwargs:
@@ -66,7 +72,23 @@ class Label():
             kwargs['pady']=self.dimentions[1]//2
         self.cover_frame.pack(**kwargs)
         self.cover_frame.pack_propagate(False)
+        self.change_kwargs=True
         self.toplevel.deiconify()
         toplevels.position(None)
+
+    def config(self,**kwargs):
+        if 'opacity' in kwargs:
+            self.opacity=kwargs['opacity']
+            self.toplevel.attributes('-alpha',self.opacity)
+            del kwargs['opacity']
+        if 'transcolor' in kwargs:
+            self.transcolor=kwargs['transcolor']
+            self.toplevel.wm_attributes("-transparentcolor",self.transcolor)
+            del kwargs['transcolor']
+        self.label.config(kwargs)
+        self.change_kwargs=False
+        self.pack(**self.pack_kwargs)
+
+    configure=config
 
 toplevels=_Toplevels()
