@@ -23,22 +23,25 @@ pip install tkinterwidgets
 
   #### Usage 
   ```
-  tkinterwidgets.Label(parent,OPTIONS)
+  tkinterwidgets.Label(master, OPTIONS)
   ```
-
+  
   Options
   * All the options of native `tkinter` `Label` except `bg`/`background` since the background is transparent.
   * `opacity` - Used to specify the opacity of the contents on a scale of `0` to `1` (where `0` implies transparent and `1` implies opaque). The default is set to `1`.
   * `transcolor` - Used to specify the color to be used to create the transparency effect (you can imagine this as a green screen but of the specified color, make sure that the visible contents of the label do not have this color). The default is set to `SystemButtonFace` .
 
   Methods
-  * `pack` - Same usage as that of the `pack` geometry manager in `tkinter`.
-  *  `config`/`configure` - Set values of one or more options.
+  * The following have the same use as that of the corresponding methods in native `tkinter` widgets
+    * `pack`
+    * `pack_forget` 
+    *  `config`/`configure` 
+    * `destroy` 
 
   #### Current Limitations / Issues
   * Only `pack` geometry manager can be used.
   * Can not be treated as a `window` in `Canvas.create_window()` or `Text.window_create()` or any similar usage.
-  * In some cases, the label remains outside the window when the size of the window is reduced.
+  * Label might move outside the window when resizing past it in some cases.
 
   #### Sample Code
   ```python

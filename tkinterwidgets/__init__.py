@@ -4,9 +4,6 @@ class _Toplevels():
     def __init__(self):
         self.toplevels=[]
 
-    def append(self,toplevel):
-        self.toplevels.append(toplevel)
-
     def lift(self):
         for top in self.toplevels:
             top.toplevel.lift()
@@ -32,7 +29,6 @@ class Label():
         if 'bg' in kwargs:
             del kwargs['bg']
         self.label=internal_tk.Label(self.toplevel,bg=self.transcolor,**kwargs)
-        toplevels.append(self)
         self.change_kwargs=True
         self.master.bind('<Configure>',toplevels.position)
         self.master.bind('<Map>',self._on_map)
@@ -56,6 +52,7 @@ class Label():
         toplevels.lift()
 
     def pack(self,**kwargs):
+        toplevels.toplevels.append(self)
         if self.change_kwargs:
             self.pack_kwargs=kwargs.copy()
             self.label.pack(**kwargs)
@@ -88,6 +85,26 @@ class Label():
         self.label.config(kwargs)
         self.change_kwargs=False
         self.pack(**self.pack_kwargs)
+
+    def destroy(self):
+        self.cover_frame.destroy()
+        toplevels.toplevels.remove(self)
+        self.toplevel.destroy()
+        try:
+            self.master.deiconify()
+        except:
+            pass
+        toplevels.position(None)
+
+    def pack_forget(self):
+        self.cover_frame.destroy()
+        toplevels.toplevels.remove(self)
+        self.toplevel.withdraw()
+        try:
+            self.master.deiconify()
+        except:
+            pass
+        toplevels.position(None)
 
     configure=config
 
