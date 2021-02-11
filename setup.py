@@ -11,9 +11,8 @@ setuptools.setup(
     description="Tkinter Custom Widgets",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/AST07/tkinterwidgets",
     license = "MIT",
-    url = "https://github.com/AST07/tkinterwidgets",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
