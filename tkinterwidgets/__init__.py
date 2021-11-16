@@ -1,4 +1,4 @@
-import tkinter as internal_tk 
+import tkinter as tk 
 
 class _Toplevels():
     def __init__(self):
@@ -6,106 +6,109 @@ class _Toplevels():
 
     def lift(self):
         for top in self.toplevels:
-            top.toplevel.lift()
+            top.lift()
 
     def position(self,event):
         try:
             for top in self.toplevels:
                 top.position()
-        except:
-            pass
+        except:pass
 
-class Label():
-    def __init__(self,master,opacity=1,transcolor='SystemButtonFace',**kwargs):
+toplevels=_Toplevels()
+
+class TransparentContainer(tk.Toplevel):
+    def __init__(self,master,**kwargs):
         self.master=master
-        self.opacity=opacity
-        self.transcolor=transcolor
-        self.toplevel=internal_tk.Toplevel(self.master)
-        self.toplevel.configure(bg=self.transcolor)
-        self.toplevel.overrideredirect(True)
-        self.toplevel.attributes('-alpha',self.opacity)
-        self.toplevel.wm_attributes("-transparentcolor",self.transcolor)
-        self.toplevel.withdraw()
-        if 'bg' in kwargs:
-            del kwargs['bg']
-        self.label=internal_tk.Label(self.toplevel,bg=self.transcolor,**kwargs)
-        self.change_kwargs=True
+        self.opacity=kwargs.pop('opacity',1)
+        self.transcolor=kwargs.pop('transcolor','SystemButtonFace')
+        bg=kwargs.pop('bg',None)
+        if not bg:
+            bg=kwargs.pop('background',None)
+            if not bg:
+                bg=self.transcolor
+        super().__init__(self.master,bg=bg,**kwargs)
+        self.overrideredirect(True)
+        self.attributes('-alpha',self.opacity)
+        self.wm_attributes("-transparentcolor",self.transcolor)
+        self.withdraw()
+        self.bind('<Configure>',self._on_change)
         self.master.bind('<Configure>',toplevels.position)
         self.master.bind('<Map>',self._on_map)
         self.master.bind('<Unmap>',self._on_unmap)
+        self.pack_remember=False
+        self.base_padding=(0,0)
 
     def _on_unmap(self,event):
-        self.toplevel.withdraw()
+        self.withdraw()
 
     def _on_map(self,event):
-        self.toplevel.deiconify()
+        self.deiconify()
         toplevels.position(None)
 
+    def _on_change(self,event):
+        self.dimentions=(event.width,event.height)
+        x=self.base_padding[0]+self.dimentions[0]//2
+        y=self.base_padding[1]+self.dimentions[1]//2
+        self.cover_frame.pack_configure(padx=x,pady=y)
+
     def position(self):
-        self.x=self.cover_frame.winfo_rootx()
-        self.y=self.cover_frame.winfo_rooty()
-        self.center_x=self.cover_frame.winfo_width()//2-self.dimentions[0]//2
-        self.center_y=self.cover_frame.winfo_height()//2-self.dimentions[1]//2
-        self.coords=(self.center_x+self.x,self.center_y+self.y)
-        self.toplevel.geometry(f'+{self.coords[0]}+{self.coords[1]}')
+
+        def geometry():
+            self.x=self.cover_frame.winfo_rootx()
+            self.y=self.cover_frame.winfo_rooty()
+            self.center_x=self.cover_frame.winfo_width()//2-self.dimentions[0]//2
+            self.center_y=self.cover_frame.winfo_height()//2-self.dimentions[1]//2
+            self.coords=(self.center_x+self.x,self.center_y+self.y)
+            self.geometry(f'+{self.coords[0]}+{self.coords[1]}')
+
+        try:geometry()
+        except:pass
         self.master.update_idletasks()
         toplevels.lift()
 
     def pack(self,**kwargs):
         toplevels.toplevels.append(self)
-        if self.change_kwargs:
-            self.pack_kwargs=kwargs.copy()
-            self.label.pack(**kwargs)
-            self.cover_frame=internal_tk.Frame(self.master)
-        self.toplevel.update()
-        self.dimentions=(self.toplevel.winfo_width(),self.toplevel.winfo_height())
-        if 'padx' in kwargs:
-            kwargs['padx']+=self.dimentions[0]//2
+        if not self.pack_remember:
+            self.cover_frame=tk.Frame(self.master)
         else:
-            kwargs['padx']=self.dimentions[0]//2
-        if 'pady' in kwargs:
-            kwargs['pady']+=self.dimentions[1]//2
-        else:
-            kwargs['pady']=self.dimentions[1]//2
-        self.cover_frame.pack(**kwargs)
+            self.cover_frame.pack()
+            self.deiconify()
+            return
+        self.update()
+        self.dimentions=(self.winfo_width(),self.winfo_height())
+        self.base_padding=(kwargs.pop('padx',0),kwargs.pop('pady',0))
+        self.cover_frame.pack(padx=self.base_padding[0],pady=self.base_padding[1],**kwargs)
         self.cover_frame.pack_propagate(False)
-        self.change_kwargs=True
-        self.toplevel.deiconify()
+        self.pack_remember=False
+        self.deiconify()
         toplevels.position(None)
 
     def config(self,**kwargs):
-        if 'opacity' in kwargs:
-            self.opacity=kwargs['opacity']
-            self.toplevel.attributes('-alpha',self.opacity)
-            del kwargs['opacity']
-        if 'transcolor' in kwargs:
-            self.transcolor=kwargs['transcolor']
-            self.toplevel.wm_attributes("-transparentcolor",self.transcolor)
-            del kwargs['transcolor']
-        self.label.config(kwargs)
-        self.change_kwargs=False
-        self.pack(**self.pack_kwargs)
+        opacity=kwargs.pop('opacity',0)
+        transcolor=kwargs.pop('transcolor',0)
+        if opacity!=0:
+            self.opacity=opacity
+            self.attributes('-alpha',self.opacity)
+        if transcolor!=0:
+            self.transcolor=transcolor
+            self.wm_attributes("-transparentcolor",self.transcolor)
+        super().config(**kwargs)
 
     def destroy(self):
         self.cover_frame.destroy()
         toplevels.toplevels.remove(self)
-        self.toplevel.destroy()
-        try:
-            self.master.deiconify()
-        except:
-            pass
-        toplevels.position(None)
+        super().destroy()
+        self.master.deiconify()
+        toplevels.position(None)    
 
     def pack_forget(self):
-        self.cover_frame.destroy()
+        self.cover_frame.pack_forget()
         toplevels.toplevels.remove(self)
-        self.toplevel.withdraw()
-        try:
-            self.master.deiconify()
-        except:
-            pass
+        self.pack_remember=True
+        self.withdraw()
+        try:self.master.deiconify()
+        except:pass
         toplevels.position(None)
 
     configure=config
-
-toplevels=_Toplevels()
+    

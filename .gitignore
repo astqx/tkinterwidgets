@@ -16,7 +16,8 @@ __pycache__/
 build/
 # -- temp --
 /tests
-test.py
+test*.py
+issue*
 # -- temp --
 develop-eggs/
 dist/

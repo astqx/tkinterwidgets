@@ -1,0 +1,336 @@
+class TitleBar(tk.Frame):
+    def __init__(self,parent,**kwargs):
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        self.sysmat3=ctypes.windll.user32.GetSystemMetrics(3)
+        self.sysmat4=ctypes.windll.user32.GetSystemMetrics(4)
+        if 'height' not in kwargs:
+            kwargs['height']=self.sysmat4+int(self.sysmat3//2-2)
+        if 'logo' in kwargs:
+            self.logo=kwargs['logo']
+            del kwargs['logo']
+        else:
+            self.logo=None
+        if 'title' in kwargs:
+            self.title=kwargs['title']
+            del kwargs['title']
+        else:
+            self.title='tk'
+        if 'bg' not in kwargs:
+            kwargs['bg']='white'
+        tk.Frame.__init__(self,parent,**kwargs)
+        self.height_frame=tk.Frame(self,height=self['height'])
+        self.height_frame.pack(side='left')
+        self.height_frame.pack_propagate(False)
+
+        self.title_frame=tk.Frame(self)
+        self.title_frame.pack(side='left',fill='y')
+
+        self.title_label=tk.Label(self.title_frame,text=self.title,bg=self['bg'],
+            font=('',11))
+        self.title_label.pack(anchor='center',fill='both',expand=True)
+        self._create_buttons()
+
+        self.fixed_delta={
+            'width':8,
+            'height':-self['height']+8,
+        }
+
+        self.bind('<Button-1>',self._start_motion)
+        self.bind('<B1-Motion>',self._motion)
+        self.title_label.bind('<Button-1>',self._start_motion)
+        self.title_label.bind('<B1-Motion>',self._motion)
+        self.master.bind('<Configure>',self._position_toplevel)
+        self.master.bind('<FocusIn>',self._focus_in)
+        self.master.bind('<FocusOut>',self._focus_out)
+        self.bind('<Double-Button-1>',self._maximise)
+        self.title_label.bind('<Double-Button-1>',self._maximise)
+
+        self.toplevel=tk.Toplevel()
+        self.toplevel.attributes('-alpha',0.5)
+        self.toplevel.resizable(False,False)
+        self.toplevel.bind('<Unmap>',self._on_unmap)
+        self.toplevel.bind('<Map>',self._on_map)
+        self.toplevel.bind('<Motion>',self._resize)
+        self.toplevel.bind('<FocusIn>',self._focus_in_toplevel)
+        self.toplevel.bind('<FocusOut>',self._focus_out_toplevel)
+        self.toplevel.protocol('WM_DELETE_WINDOW',self.master.destroy)
+        self.master.update()
+
+    def _focus_in(self,event):
+        self.toplevel.lift()
+        self.master.lift()
+
+    def _focus_out(self,event):
+        if not self.toplevel_focus:
+            self.master.lower()
+
+    def _focus_in_toplevel(self,event):
+        self.toplevel_focus=True
+
+    def _focus_out_toplevel(self,event):
+        self.toplevel_focus=True
+
+    def _on_unmap(self,event):
+        self.master.withdraw()
+        self.toplevel.iconify()
+
+    def _on_map(self,event):
+        self.master.deiconify()
+        self.toplevel.deiconify()
+        self.master.lift()
+
+    def _start_motion(self,event):
+        self.start_x=event.x
+        self.start_y=event.y
+
+    def _motion(self,event):
+        if self.master.state()=='normal':
+            x=self.master.winfo_x()-self.start_x+event.x
+            y=self.master.winfo_y()-self.start_y+event.y
+            self.master.geometry(f'+{x}+{y}')
+        else:
+            self.master.state('normal')
+            self.start_x=self.master.winfo_width()//2
+
+    def _position_toplevel(self,event):
+        if event:
+            try:
+                self.toplevel.geometry(f"""{event.width+self.fixed_delta['width']}x
+{event.height+self.fixed_delta['height']}
++{event.x-13}+{event.y-5}""".replace('\n',''))
+            except: pass
+        else:
+            self._set_current()
+            self.toplevel.geometry(f"""{self.master_width+self.fixed_delta['width']}x
+{self.master_height+self.fixed_delta['height']}
++{self.master_x-13}+{self.master_y-5}""".replace('\n','')) 
+
+    def _set_current(self):
+        self.master_width=self.master.winfo_width()
+        self.master_height=self.master.winfo_height()
+        self.master_x=self.master.winfo_rootx()
+        self.master_y=self.master.winfo_rooty()
+        self.screen_height=self.master.winfo_screenheight()*2
+        self.screen_width=self.master.winfo_screenwidth()
+
+    def _resize(self,event):
+
+        def start(event):
+            self._set_current()
+            self._res_init=(self.master_width,)
+            self._res_stop=False
+            self.toplevel.bind('<B1-Motion>',self.res_functions[self.res_side])
+            cur=win32gui.GetCursorInfo()[2]
+            self._res_x=cur[0]
+            self._res_y=cur[1]
+
+        def horizontal_left(event):
+            if not self._res_stop:
+                delta_x=win32gui.GetCursorInfo()[2][0]-self._res_x
+                x=self.master_width-delta_x
+                pos_x=self.master_x+delta_x
+                if x>0:
+                    self.master.geometry(f'{x}x{self.master_height}+{pos_x}+{self.master_y}')
+                self.master.after(100,lambda:horizontal_left(None))
+            else:
+                self._position_toplevel(None)
+
+        def horizontal_right(event):
+            if not self._res_stop:
+                delta_x=win32gui.GetCursorInfo()[2][0]-self._res_x
+                x=self.master_width+delta_x
+                if x>0:
+                    self.master.geometry(f'{x}x{self.master_height}')
+                self.master.after(100,lambda:horizontal_right(None))
+            else:
+                self._position_toplevel(None)
+
+        def vertical_bottom(event):
+            if not self._res_stop:
+                delta_y=win32gui.GetCursorInfo()[2][1]-self._res_y
+                y=self.master_height+delta_y
+                if y>0:
+                    self.master.geometry(f'{self.master_width}x{y}')
+                self.master.after(100,lambda:vertical_bottom(None))
+            else:
+                self._position_toplevel(None)
+
+        def combined_right(event):
+            if not self._res_stop:
+                cur=win32gui.GetCursorInfo()[2]
+                delta_x=cur[0]-self._res_x
+                delta_y=cur[1]-self._res_y
+                x=self.master_width+delta_x
+                y=self.master_height+delta_y
+                if x>0 and y>0:
+                    self.master.geometry(f'{x}x{y}')
+                self.master.after(100,lambda:combined_right(None))
+            else:
+                self._position_toplevel(None)
+
+        def combined_left(event):
+            if not self._res_stop:
+                cur=win32gui.GetCursorInfo()[2]
+                delta_x=cur[0]-self._res_x
+                delta_y=cur[1]-self._res_y
+                x=self.master_width-delta_x
+                y=self.master_height+delta_y
+                pos_x=self.master_x+delta_x
+                if x>0 and y>0:
+                    self.master.geometry(f'{x}x{y}+{pos_x}+{self.master_y}')
+                self.master.after(100,lambda:combined_left(None))
+            else:
+                self._position_toplevel(None)
+
+        def stop(event):
+            self._res_stop=True
+            self.toplevel.unbind('<Button-1>')       
+            self.toplevel.unbind('<B1-Motion>')
+            self.toplevel.unbind('<ButtonRelease-1>')
+            self._position_toplevel(None)
+
+        self.res_functions={
+            'left':horizontal_left,
+            'right':horizontal_right,
+            'bottom':vertical_bottom,
+            'se':combined_right,
+            'sw':combined_left
+        }
+        self.res_side=None
+
+        self.toplevel.bind('<Button-1>',start)
+        self.toplevel.bind('<ButtonRelease-1>',stop)
+
+        width=self.master.winfo_width()
+        height=self.master.winfo_height()
+        if event.x in range(-5,15) and not event.y in range(height-35,height-20):
+            self.toplevel['cursor']='sb_h_double_arrow'
+            self.res_side='left'
+        elif event.x in range(width-5,width+15) and not event.y in range(height-35,height-20):
+            self.toplevel['cursor']='sb_h_double_arrow'
+            self.res_side='right'
+        elif event.x in range(width-5,width+15) and event.y in range(height-35,height-20):
+            self.toplevel['cursor']='size_nw_se'
+            self.res_side='se'
+        elif event.x in range(-5,15) and event.y in range(height-35,height-20):
+            self.toplevel['cursor']='size_ne_sw'
+            self.res_side='sw'
+        else:
+            self.toplevel['cursor']='sb_v_double_arrow'
+            self.res_side='bottom'
+
+    def _maximise(self,event):
+        if self.master.state()=='normal':
+            self.master.state('zoomed')
+            self.max_button.delete(self.max_norm)
+            self.max_zoom0=self.max_button.create_rectangle(*self.max_state['zoomed0'])
+            self.max_zoom1=self.max_button.create_rectangle(*self.max_state['zoomed1'],fill='white')
+        else:
+            self.master.state('normal')
+            self.max_button.delete('all')
+            self.max_norm=self.max_button.create_rectangle(*self.max_state['normal'])
+
+    def _create_buttons(self):
+        self.button_frame=tk.Frame(self)
+        self.button_frame.pack(side='right')
+        self.button_height=self.sysmat4+self.sysmat3//2-2
+        self.button_width=self.sysmat4+self.sysmat3*1.4
+        self.button_center=(self.button_width//2,self.button_height//2)
+        self.span=self.sysmat3*(2/7)
+
+        #----- Close Button -----#
+
+        self.close_button=tk.Canvas(self.button_frame,height=self.button_height,
+            width=self.button_width,highlightthickness=0,bg='white')
+        self.close_button.pack(side='right')
+        self.close_button.pack_propagate(False)
+        self.x_line0=self.close_button.create_line(
+            self.button_center[0]-self.span,
+            self.button_center[1]-self.span,
+            self.button_center[0]+self.span,
+            self.button_center[1]+self.span
+        )
+        self.x_line1=self.close_button.create_line(
+            self.button_center[0]+self.span-1,
+            self.button_center[1]-self.span,
+            self.button_center[0]-self.span-1,
+            self.button_center[1]+self.span
+        )
+        self.x_lines=(self.x_line0,self.x_line1)
+        self.close_button.bind('<Button-1>',lambda x:self.master.destroy())
+        self.close_button.bind('<Enter>',self._close_on_enter)
+        self.close_button.bind('<Leave>',self._close_on_leave)
+
+        #----- Maximise Button -----#
+
+        self.max_button=tk.Canvas(self.button_frame,height=self.button_height,
+            width=self.button_width,highlightthickness=0,bg='white')
+        self.max_button.pack(side='right')
+        self.max_button.pack_propagate(False)
+        self.max_state={
+            'normal':(
+                self.button_center[0]-self.span,
+                self.button_center[1]-self.span,
+                self.button_center[0]+self.span-1,
+                self.button_center[1]+self.span-1
+            ),
+            'zoomed0':(
+                self.button_center[0]-self.span+1,
+                self.button_center[1]-self.span-1,
+                self.button_center[0]+self.span-2,
+                self.button_center[1]+self.span-3,
+            ),
+            'zoomed1':(
+                self.button_center[0]-self.span-1,
+                self.button_center[1]-self.span+1,
+                self.button_center[0]+self.span-4,
+                self.button_center[1]+self.span-1,
+            ),
+        }
+        self.max_norm=self.max_button.create_rectangle(*self.max_state['normal'])
+        self.max_button.bind('<Button-1>',self._maximise)
+        self.max_button.bind('<Enter>',self._max_on_enter)
+        self.max_button.bind('<Leave>',self._max_on_leave)
+
+        #----- Minimise Button -----#
+
+        self.min_button=tk.Canvas(self.button_frame,height=self.button_height,
+            width=self.button_width,highlightthickness=0,bg='white')
+        self.min_button.pack(side='right')
+        self.min_button.pack_propagate(False)
+        self.line=self.min_button.create_line(self.button_center[0]-self.span,
+            self.button_center[1],self.button_center[0]+self.span,self.button_center[1])
+        self.min_button.bind('<Button-1>',self._on_unmap)
+        self.min_button.bind('<Enter>',self._min_on_enter)
+        self.min_button.bind('<Leave>',self._min_on_leave)
+
+    def _close_on_enter(self,event):
+        self.close_button.config(bg='red2')
+        for line in self.x_lines:
+            self.close_button.itemconfigure(line,fill='white')
+
+    def _close_on_leave(self,event):
+        self.close_button.config(bg='white')
+        for line in self.x_lines:
+            self.close_button.itemconfigure(line,fill='black')
+
+    def _max_on_enter(self,event):
+        self.max_button.config(bg='grey90')
+        try:
+            self.max_button.itemconfigure(self.max_zoom1,fill='grey90')
+        except: pass
+
+    def _max_on_leave(self,event):
+        self.max_button.config(bg='white')
+        try:
+            self.max_button.itemconfigure(self.max_zoom1,fill='white')
+        except: pass
+
+    def _min_on_enter(self,event):
+        self.min_button.config(bg='grey90')
+
+    def _min_on_leave(self,event):
+        self.min_button.config(bg='white')
+
+    def pack(self):
+        self.pack_configure(fill='x')
